@@ -49,7 +49,7 @@ docker-compose down -v
 Deploying a Toshi app requires a few processes to run:
 
 * **toshi-headless-client**<br>
-  This is a client we provide (similar to the iOS or Android client) that provides a wrapper around the Toshi backend services. It also handles end-to-end encrypting all messages using the Signal protocol. It is written in Java and runs in the background, proxying all the requests to amd from your bot.
+  This is a client we provide (similar to the iOS or Android client) that provides a wrapper around the Toshi backend services. It also handles end-to-end encrypting all messages using the Signal protocol. It is written in Java and runs in the background, proxying all the requests to and from your bot.
 * **redis**<br>
   We use redis pub/sub to provide a connection between the toshi-headless-client and your bot.
 * **bot.js**<br>
