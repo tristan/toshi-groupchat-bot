@@ -1,16 +1,6 @@
 const fetch = require('./ServiceClient');
 const Logger = require('./Logger');
-
-function getUrl(path, proto) {
-  var endpoint;
-  if (!proto) proto = 'https';
-  if (process.env['STAGE'] == 'development') {
-    endpoint = proto + '://token-id-service-development.herokuapp.com';
-  } else {
-    endpoint = proto + '://token-id-service.herokuapp.com';
-  }
-  return endpoint + path;
-}
+const WebSocketConnection = require('./WebSocketConnection');
 
 let cached_users = {
 };
@@ -22,17 +12,29 @@ function cache_is_valid(timestamp, timeout) {
   return timestamp - (new Date().getTime() / 1000) > timeout;
 }
 
-class IdService {
-  constructor(signing_key) {
+class IdServiceClient {
+  constructor() {}
+
+  initialize(base_url, signing_key) {
     this.signing_key = signing_key;
+    this.base_url = base_url;
+    this.ws = new WebSocketConnection(this.base_url,
+                                      null,
+                                      this.signing_key,
+                                      "toshi-app-js");
+    this.ws.connect();
   }
 
-  static getUser(token_id) {
+  _getUrl(path) {
+    return this.base_url + path;
+  }
+
+  getUser(token_id) {
     if (cached_users[token_id] && cache_is_valid(cached_users[token_id].timestamp)) {
       return Promise.resolve(cached_users[token_id].user);
     }
     return fetch({
-      url: getUrl('/v1/user/' + token_id),
+      url: this._getUrl('/v1/user/' + token_id),
       json: true
     }).then((user) => {
       cached_users[token_id] = {timestamp: new Date().getTime() / 1000, user: user};
@@ -46,19 +48,19 @@ class IdService {
     });
   }
 
-  static paymentAddressReverseLookup(address) {
+  paymentAddressReverseLookup(address) {
     if (cached_users_pa[address] && cache_is_valid(cached_users_pa[address].timestamp)) {
       return Promise.resolve(cached_users_pa[address].user);
     }
     return fetch({
-      url: getUrl('/v1/search/user?payment_address=' + address),
+      url: this._getUrl('/v1/search/user?payment_address=' + address),
       json: true
     }).then((body) => {
       cached_users_pa[address] = {timestamp: new Date().getTime() / 1000, user: null};
       let user = null;
       if (body.results.length > 0) {
         user = body.results[0];
-        cached_users_pa[address].user = user
+        cached_users_pa[address].user = user;
         cached_users[user.token_id] = cached_users_pa[address];
       }
       return user;
@@ -69,4 +71,4 @@ class IdService {
   }
 }
 
-module.exports = IdService;
+module.exports = new IdServiceClient();

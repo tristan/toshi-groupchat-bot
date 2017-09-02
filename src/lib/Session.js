@@ -16,10 +16,6 @@ class Session {
     this.config = config;
     this.storage = storage;
 
-    if (!fs.existsSync(this.config.store)) {
-      mkdirp.sync(this.config.store);
-    }
-
     this.address = address || "anonymous";
     this.data = {
       address: this.address

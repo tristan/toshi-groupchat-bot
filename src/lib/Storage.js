@@ -58,7 +58,7 @@ function get_type(value) {
 
 class PSQLStore {
 
-  constructor(config, sslmode) {
+  constructor(config, sslmode, schema) {
     if (typeof config === 'object') {
       if (config.url) {
         config = parse_psql_url(config.url);
@@ -70,6 +70,7 @@ class PSQLStore {
     if (sslmode == 'require') {
       this.config.ssl = sslmode;
     }
+    this.schema = schema || "development";
     this.pgPool = new pg.Pool(this.config);
     this.pgPool.on('error', function (err, client) {
       console.error('idle client error', err.message, err.stack)
@@ -90,7 +91,7 @@ class PSQLStore {
 
   loadBotSession(address) {
     return new Promise((fulfill, reject) => {
-      this._execute("SELECT * from bot_sessions WHERE eth_address = $1", [address], (err, result) => {
+      this._execute("SELECT * from " + this.schema + ".bot_sessions WHERE eth_address = $1", [address], (err, result) => {
         if (err) { Logger.error(err) }
         if (!err && result.rows.length > 0) {
           fulfill(result.rows[0].data);
@@ -104,7 +105,7 @@ class PSQLStore {
   }
 
   updateBotSession(address, data) {
-    let query = `INSERT INTO bot_sessions (eth_address, data)
+    let query = `INSERT INTO ${this.schema}.bot_sessions (eth_address, data)
                  VALUES ($1, $2)
                  ON CONFLICT (eth_address) DO UPDATE
                  SET data = $2`;
@@ -118,7 +119,7 @@ class PSQLStore {
 
   removeBotSession(address) {
     return new Promise((fulfill, reject) => {
-      this._execute("DELETE from bot_sessions WHERE eth_address = $1", [address], (err, result) => {
+      this._execute("DELETE from " + this.schema + ".bot_sessions WHERE eth_address = $1", [address], (err, result) => {
         if (err) { Logger.error(err); reject(err); }
         else { fulfill(); }
       });
@@ -133,7 +134,7 @@ class PSQLStore {
       value = value.toString();
     }
 
-    let query = `INSERT INTO key_value_store (key, value, type)
+    let query = `INSERT INTO ${this.schema}.key_value_store (key, value, type)
                  VALUES ($1, $2, $3)
                  ON CONFLICT (key) DO UPDATE
                  SET value = $2, type = $3`;
@@ -147,7 +148,7 @@ class PSQLStore {
 
   getKey(key) {
     return new Promise((fulfill, reject) => {
-      this._execute("SELECT * FROM key_value_store WHERE key = $1", [key], (err, result) => {
+      this._execute("SELECT * FROM " + this.schema + ".key_value_store WHERE key = $1", [key], (err, result) => {
         if (err) { Logger.error(err); }
         if (result && result.rows.length > 0) {
           result = result.rows[0];

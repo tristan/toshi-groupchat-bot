@@ -1,235 +1,90 @@
-var rp = require('request-promise-native');
-const WebSocket = require('ws');
+const WebSocketConnection = require('./WebSocketConnection');
 const Logger = require('./Logger');
 const SOFA = require('sofa-js');
 const numberToBN = require('number-to-bn');
 
-function getUrl(path, proto) {
-  var endpoint;
-  if (!proto) proto = 'https';
-  if (process.env['STAGE'] == 'development') {
-    endpoint = proto + '://token-eth-service-development.herokuapp.com';
-  } else {
-    endpoint = proto + '://token-eth-service.herokuapp.com';
-  }
-  return endpoint + path;
+function getTime() {
+  return parseInt(Date.now() / 1000);
 }
 
-function getLocalTimestamp() {
-  return parseInt(new Date().getTime() / 1000);
-}
+class EthServiceClient {
 
-class WebsocketClient {
-  constructor(signing_key) {
+  constructor() {}
+
+  initialize(base_url, signing_key) {
+    this.base_url = base_url;
     this.signing_key = signing_key;
-    this.ws = null;
-    this.subscriptions = {};
-    this.last_timestamp = 0;
-    this.jsonrpc_id = 0;
-    this._wscalls = {};
-  }
-
-  connect() {
-    if (this.ws) {
-      try {
-        this.ws.ping();
-        // if this is fine the connection is already open
-      } catch (e) {
-        // otherwise we need to open another connection
-        this.ws.terminate();
-        this.ws = null;
-        this._connected = false;
-      }
-    }
-    let timestamp = getLocalTimestamp();
-    // don't spam connections when reconnecting fails
-    if (timestamp - this._last_connect_timestamp < 5) {
-      setTimeout(this.connect.bind(this), (5 - (timestamp - this._last_connect_timestamp)) * 1000);
-      return;
-    } else {
-      this._last_connect_timestamp = timestamp;
-    }
-    let data =
-        "GET" + "\n" +
-        "/v1/ws" + "\n" +
-        timestamp + "\n";
-    let sig = this.signing_key.sign(data);
-    this.ws = new WebSocket(getUrl('/v1/ws', 'wss'), [], {
-      headers: {
-        'Token-ID-Address': this.signing_key.address,
-        'Token-Timestamp': timestamp,
-        'Token-Signature': sig
+    this.ws = new WebSocketConnection(this.base_url,
+                                      null,
+                                      this.signing_key,
+                                      "toshi-app-js");
+    this.ws.connect();
+    this.ws.listen(([method, params]) => {
+      if (method == 'subscription') {
+        let address = params.subscription;
+        if (address in this.subscriptionCallbacks) {
+          this.subscriptionCallbacks[address].last_timestamp = getTime();
+          this.subscriptionCallbacks[address].callbacks.forEach((callback) => {
+            callback(params.message);
+          });
+        }
       }
     });
-    this.ws.on('open', this.subscribe.bind(this));
-    this.ws.on('message', this.handle_message.bind(this));
-    this.ws.on('close', this.handle_close.bind(this));
-    this.ws.on('error', this.handle_error.bind(this));
+    this.subscriptionCallbacks = {};
   }
 
-  call_list_payment_updates(address, start, end) {
-    if (!start) {
-      start = this.subscriptions[address].last_timestamp;
-      if (!start) {
-        // no stored value here, so refusing to call
-        // otherwise we would get the entire transaction
-        // history
-        return;
+  subscribe(address, callback, lastMessageTimestamp) {
+    return new Promise((fulfil, reject) => {
+      if (address in this.subscriptionCallbacks) {
+        this.subscriptionCallbacks.callbacks.push(callback);
+        fulfil();
+      } else {
+        this.subscriptionCallbacks[address] = {
+          last_timestamp: lastMessageTimestamp || getTime(),
+          callbacks: [callback]
+        };
+        this.ws.sendRequest("subscribe", [address])
+          .then((r) => fulfil())
+          .catch((err) => reject(err));
+
       }
-    }
-    if (!end) {
-      end = getLocalTimestamp();
-    }
-    var jsonrpcid = this.jsonrpc_id = this.jsonrpc_id + 1;
-    var message = {
-      "jsonrpc": "2.0",
-      "id": this.jsonrpc_id,
-      "method": "list_payment_updates",
-      "params": [address, start, end]
-    };
-    this.ws.send(JSON.stringify(message));
-    this._wscalls[jsonrpcid] = message;
+      if (lastMessageTimestamp) {
+        this.ws.sendRequest("list_payment_updates", [address, lastMessageTimestamp, getTime()]);
+      }
+    });
   }
 
-  subscribe(address, callback, last_timestamp) {
-    if (address) {
-      if (!callback) {
-        throw Exception("Expected callback passed to subscibe");
-      }
-      if (!(address in this.subscriptions)) {
-        this.subscriptions[address] = {last_timestamp: last_timestamp, callbacks: []};
-        if (this._connected) {
-          var jsonrpcid = this.jsonrpc_id = this.jsonrpc_id + 1;
-          var message = JSON.stringify({
-            "jsonrpc": "2.0",
-            "id": this.jsonrpc_id,
-            "method": "subscribe",
-            "params": address
-          });
-          this.ws.send(message);
-          this.call_list_payment_updates(address);
+  getBalance(address) {
+    address = address || this.walletSigningKey.address;
+    return new Promise((fulfil, reject) => {
+      this.ws.sendRequest("get_balance", [address]).then((result) => {
+        let unconfirmed = parseHex(result.unconfirmed_balance);
+        let confirmed = parseHex(result.confirmed_balance);
+        fulfil([unconfirmed, confirmed]);
+      }).catch((err) => reject(err));
+    });
+  }
+
+  getTransaction(hash) {
+    return new Promise((fulfil, reject) => {
+      this.ws.sendRequest("get_transaction", [hash]).then((result) => {
+        if (result == null) {
+          reject(new Error("Transaction not found"));
+        } else {
+          result.gasPrice = parseHex(result.gasPrice);
+          result.gas = parseHex(result.gas);
+          result.nonce = parseHex(result.nonce);
+          result.value = parseHex(result.value);
+          if (result.blockNumber) { result.blockNumber = parseHex(result.blockNumber); }
+          fulfil(result);
         }
-      }
-      if (this.subscriptions[address].callbacks.indexOf(callback) == -1) {
-        this.subscriptions[address].callbacks.push(callback);
-      }
-    } else {
-      this._connected = true;
-      // reconnecting, resubscribe to all!
-      var jsonrpcid = this.jsonrpc_id = this.jsonrpc_id + 1;
-      var message = JSON.stringify({
-        "jsonrpc": "2.0",
-        "id": this.jsonrpc_id,
-        "method": "subscribe",
-        "params": Object.keys(this.subscriptions)
-      });
-      this.ws.send(message);
-      for (address in this.subscriptions) {
-        this.call_list_payment_updates(address);
-      }
-    }
-  }
-
-  handle_message(message) {
-    Logger.debug("handling websocket message: " + message);
-    message = JSON.parse(message);
-    if (message['method']) {
-      if (message['method'] == 'subscription') {
-        let address = message['params']['subscription'];
-        if (address in this.subscriptions) {
-          this.subscriptions[address].last_timestamp = getLocalTimestamp();
-          for (var i = 0; i < this.subscriptions[address].callbacks.length; i++) {
-            let cb = this.subscriptions[address].callbacks[i];
-            cb(message['params']['message']);
-          }
-        }
-      }
-    } else if ('error' in message) {
-      Logger.error(`Message Error (${message['error']['code']}): ${message['error']['message']}`);
-    } else if ('id' in message) {
-      let caller = this._wscalls[message['id']];
-      if (caller) {
-        let address = caller['params'][0];
-        this.subscriptions[address].last_timestamp = Math.max(caller['params'][2], this.subscriptions[address].last_timestamp);
-        for (var m of message['result']) {
-          for (var i = 0; i < this.subscriptions[address].callbacks.length; i++) {
-            let cb = this.subscriptions[address].callbacks[i];
-            cb(m);
-          }
-        }
-        delete this._wscalls[message['id']];
-      }
-    }
-  }
-
-  handle_close() {
-    this.maybe_reconnect();
-  }
-
-  handle_error(e) {
-    // captures unexpected errors that the websocket library
-    // cannot handle gracefully (e.g. websocket server going down)
-    Logger.error("Websocket Error");
-    this.maybe_reconnect();
-  }
-
-  maybe_reconnect() {
-    this._connected = false;
-    // only try reconnect if there is a `this.ws` otherwise we get in a look
-    if (this.ws) {
-      let oldws = this.ws;
-      this.ws = null;
-      oldws.terminate();
-      this.connect();
-    }
-  }
-}
-
-class EthService {
-  static getBalance(address) {
-    return rp(getUrl('/v1/balance/' + address))
-      .then((body) => {
-        return numberToBN(JSON.parse(body).unconfirmed_balance);
-      })
-      .catch((error) => {
-        Logger.error("Error getting balance for '" + address + "': " + error);
-      });
-  }
-
-  static getTransaction(hash) {
-    return rp(getUrl('/v1/tx/' + hash))
-      .then((body) => {
-        body = JSON.parse(body);
-        body.gasPrice = numberToBN(body.gasPrice);
-        body.gas = numberToBN(body.gas);
-        body.nonce = numberToBN(body.nonce);
-        body.value = numberToBN(body.value);
-        if (body.blockNumber) { body.blockNumber = numberToBN(body.blockNumber); }
-        return body;
-      })
-      .catch((error) => {
-        Logger.error("Unable to get transaction with hash: '" + hash + "': " + error);
-      });
-  }
-
-  constructor(signing_key) {
-    this.signing_key = signing_key;
-    this.ws = null;
-  }
-
-  subscribe(address, callback, last_message_timestamp) {
-    if (!this.ws) {
-      this.ws = new WebsocketClient(this.signing_key);
-      this.ws.connect();
-    }
-    this.ws.subscribe(address, callback, last_message_timestamp);
+      }).catch((err) => reject(err));
+    });
   }
 
   get_last_message_timestamp(address) {
-    if (this.ws) {
-      if (this.ws.subscriptions[address]) {
-        return this.ws.subscriptions[address].last_timestamp;
-      }
+    if (this.subscriptionCallbacks[address]) {
+      return this.subscriptionCallbacks[address].last_timestamp;
     }
     return null;
   }
@@ -237,4 +92,4 @@ class EthService {
 
 
 
-module.exports = EthService;
+module.exports = new EthServiceClient();

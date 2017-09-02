@@ -3,7 +3,6 @@
 // to make up a single wei
 
 const BN = require('bn.js');
-const numberToBN = require('number-to-bn');
 
 const { unitMap,
         numberToString,

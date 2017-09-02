@@ -15,7 +15,7 @@ services:
       - LOG_LEVEL=INFO
       - ENABLE_LOG_TIMESTAMPS=0
     volumes:
-      - ./config/docker.yml:/usr/src/headless-client/config.yml
+      - ./config:/usr/src/headless-client/config
       - ./attachments:/usr/src/headless-client/attachments
   bot:
     build: .
@@ -24,7 +24,7 @@ services:
       - postgres
     environment: *environment
     volumes:
-      - ./config/docker.yml:/usr/src/bot/config.yml
+      - ./config:/usr/src/bot/config
       - ./src:/usr/src/bot/src
   redis:
     build: dependencies/redis

@@ -12,6 +12,11 @@
     "TOKEN_APP_NAME": {
       "description": "Choose a display name - all characters allowed"
     },
+    "STAGE": {
+      "description": "Stage of deployment: development (default) or production",
+      "value": "development",
+      "required": true
+    },
     "NODE_MODULES_CACHE": {
       "description": "Enable the often-troublesome npm/yarn cache",
       "value": "false",

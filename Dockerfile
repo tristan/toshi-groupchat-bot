@@ -14,4 +14,4 @@ ADD src /usr/src/bot/src
 ADD package.json /usr/src/bot/package.json
 WORKDIR /usr/src/bot
 
-CMD nodemon -L src/bot.js config.yml
+CMD nodemon -L src/bot.js
