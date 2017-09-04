@@ -1,7 +1,15 @@
+const BN = require('bn.js');
 const WebSocketConnection = require('./WebSocketConnection');
 const Logger = require('./Logger');
 const SOFA = require('sofa-js');
 const numberToBN = require('number-to-bn');
+
+function parseHex(string) {
+  if (string.startsWith("0x") || string.startsWith("0X")) {
+    string = string.slice(2);
+  }
+  return new BN(string, 'hex');
+}
 
 function getTime() {
   return parseInt(Date.now() / 1000);
@@ -11,9 +19,10 @@ class EthServiceClient {
 
   constructor() {}
 
-  initialize(base_url, signing_key) {
+  initialize(base_url, signing_key, walletSigningKey) {
     this.base_url = base_url;
     this.signing_key = signing_key;
+    this.walletSigningKey = walletSigningKey;
     this.ws = new WebSocketConnection(this.base_url,
                                       null,
                                       this.signing_key,

@@ -21,7 +21,7 @@ class Client {
     this.config = new Config('config/' + stage + '.yml');
 
     IdService.initialize(this.config.token_id_service_url, this.config.identityKey);
-    EthService.initialize(this.config.token_ethereum_service_url, this.config.identityKey);
+    EthService.initialize(this.config.token_ethereum_service_url, this.config.identityKey, this.config.paymentKey);
 
     Logger.info("TOKEN ID: " + this.config.tokenIdAddress);
     Logger.info("PAYMENT ADDRESS KEY: " + this.config.paymentAddress);
