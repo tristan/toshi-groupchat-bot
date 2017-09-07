@@ -75,6 +75,10 @@ class Client {
               if (held) {
                 session.set('heldForInit', null);
                 let heldSofa = SOFA.parse(held);
+                if (heldSofa.type == 'Message' && heldSofa.body == '') {
+                  // ignore empty messages (a.k.a. bot wake up messages)
+                  return;
+                }
                 this.bot.onClientMessage(session, heldSofa);
               }
             } else if (sofa.type == "InitRequest") {
