@@ -192,10 +192,12 @@ class Client {
       message = SOFA.Message({body: message});
     }
     Logger.sentMessage(message, address);
+    let isArray = Array.isArray(address);
     this.publisher.publish(this.config.tokenIdAddress, JSON.stringify({
       sofa: message.string,
       sender: this.config.tokenIdAddress,
-      recipient: address
+      recipient: isArray ? undefined : address,
+      recipients: isArray ? address : undefined
     }));
   }
 
