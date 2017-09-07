@@ -5,6 +5,7 @@ const Session = require('./Session');
 const Logger = require('./Logger');
 const EthService = require('./EthService');
 const IdService = require('./IdService');
+const FiatService = require('./Fiat');
 const Storage = require('./Storage');
 
 const JSONRPC_VERSION = '2.0';
@@ -22,6 +23,7 @@ class Client {
 
     IdService.initialize(this.config.token_id_service_url, this.config.identityKey);
     EthService.initialize(this.config.token_ethereum_service_url, this.config.identityKey, this.config.paymentKey);
+    FiatService.initialize(this.config.token_exchange_service_url);
 
     Logger.info("TOKEN ID: " + this.config.tokenIdAddress);
     Logger.info("PAYMENT ADDRESS KEY: " + this.config.paymentAddress);
