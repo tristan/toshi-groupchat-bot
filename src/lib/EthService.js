@@ -45,7 +45,7 @@ class EthServiceClient {
   subscribe(address, callback, lastMessageTimestamp) {
     return new Promise((fulfil, reject) => {
       if (address in this.subscriptionCallbacks) {
-        this.subscriptionCallbacks.callbacks.push(callback);
+        this.subscriptionCallbacks[address].callbacks.push(callback);
         fulfil();
       } else {
         this.subscriptionCallbacks[address] = {
