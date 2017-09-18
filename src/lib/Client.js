@@ -133,11 +133,13 @@ class Client {
     // note: without this, if the eth service returns notifications before
     // the headless client is ready, the responses generated can be lost
     // in the redis void
+    let started = false;
     var interval = setInterval(() => {
       this.rpc({address: this.config.tokenIdAddress}, {
         method: "ping"
       }, (session, error, result) => {
-        if (result) {
+        if (result && !started) {
+          started = true;
           clearInterval(interval);
           Logger.info("Headless client ready...");
           this.configureServices();
