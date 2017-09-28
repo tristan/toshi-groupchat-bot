@@ -95,7 +95,7 @@ class Session {
         return Promise.resolve(unit.fromWei(bal, fiat_type.toLowerCase()));
       });
     } else {
-      return getbal.then((bal) => {
+      return getbal.then(([bal, _]) => {
         return Fiat.fetch().then((fiat) => {
           return Promise.resolve(fiat[fiat_type.toUpperCase()].fromEth(unit.fromWei(bal, 'ether')));
         });
