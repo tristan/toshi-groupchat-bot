@@ -16,8 +16,10 @@ class WebSocketConnection {
 
     this.outgoingRequests = {};
     this.incomingRequests = [];
+    this.reconnectCallbacks = [];
     this.callbacks = [];
     this.jsonrpcId = 1;
+    this.wasConnected = false;
   }
 
   connect() {
@@ -91,6 +93,7 @@ class WebSocketConnection {
       let ws = this.ws;
       this.connected = false;
       this.ws = null;
+      this.wasConnected = false;
       ws.close(1000, "OK");
     }
   }
@@ -98,6 +101,11 @@ class WebSocketConnection {
   onOpen() {
     this.connected = true;
     this.attempts = 0;
+    if (this.wasConnected) {
+      this.reconnectCallbacks.forEach((cb) => cb());
+    } else {
+      this.wasConnected = true;
+    }
   }
 
   onClose(code, reason) {
@@ -234,6 +242,10 @@ class WebSocketConnection {
       let request = this.incomingRequests.shift();
       callback(request);
     }
+  }
+
+  onReconnect(callback) {
+    this.reconnectCallbacks.push(callback);
   }
 }
 

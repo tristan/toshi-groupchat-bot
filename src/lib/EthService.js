@@ -40,6 +40,19 @@ class EthServiceClient {
       }
     });
     this.subscriptionCallbacks = {};
+    this.ws.onReconnect(() => {
+      for (let address in this.subscriptionCallbacks) {
+        this._resubscribe(address, this.subscriptionCallbacks[address].last_timestamp);
+      }
+    });
+  }
+
+  _resubscribe(address, lastMessageTimestamp) {
+    this.ws.sendRequest("subscribe", [address])
+      .then(() => {
+        this.ws.sendRequest("list_payment_updates", [address, lastMessageTimestamp, getTime()]);
+      })
+      .catch((err) => Logger.error("error reconnectingto eth service websocket!\n" + err));
   }
 
   subscribe(address, callback, lastMessageTimestamp) {
