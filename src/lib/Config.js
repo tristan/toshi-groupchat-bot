@@ -19,10 +19,10 @@ class Config {
     if (this.storage.envKey) { this.storageUrl = process.env[this.storage.envKey]; }
     if (this.redis.uri) { this.redisUrl = this.redis.uri; }
     if (this.redis.envKey) { this.redisUrl = process.env[this.redis.envKey]; }
-    if (!this.seedMnemonic) { this.seedMnemonic = process.env['TOKEN_APP_SEED']; }
+    if (!this.seedMnemonic) { this.seedMnemonic = process.env.TOSHI_APP_SEED || process.env.TOKEN_APP_SEED; }
 
     if (!this.seedMnemonic) {
-      throw new Error(`Missing 'seedMnemonic' in config file: ${path}, or as environment variable TOKEN_APP_SEED`);
+      throw new Error(`Missing 'seedMnemonic' in config file: ${path}, or as environment variable TOSHI_APP_SEED`);
     }
 
     if ((this.seedMnemonic.startsWith('"') && this.seedMnemonic.endsWith('"')) || (this.seedMnemonic.startsWith("'") && this.seedMnemonic.endsWith("'"))) {
