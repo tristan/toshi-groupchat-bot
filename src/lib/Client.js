@@ -25,7 +25,7 @@ class Client {
     EthService.initialize(this.config.token_ethereum_service_url, this.config.identityKey, this.config.paymentKey);
     FiatService.initialize(this.config.token_exchange_service_url);
 
-    Logger.info("TOKEN ID: " + this.config.tokenIdAddress);
+    Logger.info("TOSHI ID: " + this.config.toshiIdAddress);
     Logger.info("PAYMENT ADDRESS KEY: " + this.config.paymentAddress);
 
     if (this.config.storage.postgres) {
@@ -143,6 +143,7 @@ class Client {
           clearInterval(interval);
           Logger.info("Headless client ready...");
           this.configureServices();
+          if (this.bot.onReady) { this.bot.onReady(); }
         }
       });
     }, 1000);

@@ -35,7 +35,7 @@ class Config {
     let wallet = new Wallet(this.seedMnemonic);
     this.identityKey = wallet.derive_path("m/0'/1/0");
     this.paymentKey = wallet.derive_path("m/44'/60'/0'/0/0");
-    this.tokenIdAddress = this.identityKey.address;
+    this.toshiIdAddress = this.tokenIdAddress = this.identityKey.address;
     this.paymentAddress = this.paymentKey.address;
   }
 

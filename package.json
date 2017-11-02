@@ -1,5 +1,5 @@
 {
-  "name": "toshi-app-js",
+  "name": "toshi-groupchat-bot",
   "version": "0.2.2",
   "description": "",
   "main": "src/bot.js",
@@ -30,8 +30,8 @@
     "console": "nodemon -L src/lib/Console.js"
   },
   "engines": {
-    "node": "7.4.0"
+    "node": "8.8.0"
   },
-  "author": "Toshi",
+  "author": "@tristan",
   "license": "ISC"
 }
